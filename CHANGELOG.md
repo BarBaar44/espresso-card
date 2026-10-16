@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.2
+
+### Fixed
+* **Off:** "Espresso" and "Off" now sit level with a Mushroom tile next to it, such as the Cat Feeder (name baseline 44px, status 20px above the bottom edge), instead of lower down.
+
 ## v0.1.1
 
 Fixes found by checking v0.1.0 against 8 real sessions.

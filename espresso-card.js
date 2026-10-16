@@ -21,7 +21,7 @@
 // Everything sits in one block so the top-level names cannot clash with the
 // sister cards when the files are loaded as classic scripts.
 {
-const VERSION = "0.1.1";
+const VERSION = "0.1.2";
 
 const ESPRESSO_HOLD_MS = 500;
 const ESPRESSO_MOVE_PX = 10;
@@ -110,6 +110,9 @@ ${Object.values(ESPRESSO_COLORS).map(([v, d]) => `    ${v}: ${d};`).join("\n")}
   .status, .detail { font-size: 12px; line-height: 16px; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .err .status { color: var(--ec-error); }
   .nodetail .detail { display: none; }
+  /* Off: the two lines sit level with a Mushroom tile next to it (name baseline 44px, status 20px above the card's bottom edge). */
+  .nodetail .text { padding-bottom: 5px; }
+  .nodetail .status { margin-top: 8px; }
   .detail { display: flex; align-items: center; gap: 6px; height: 16px; font-variant-numeric: tabular-nums; }
   .detail .words { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .bar { display: none; flex: 1; min-width: 16px; height: 4px; border-radius: 2px; background: var(--ec-soft); overflow: hidden; }
