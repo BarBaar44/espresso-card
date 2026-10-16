@@ -1,0 +1,6 @@
+{
+  "name": "Espresso Card",
+  "filename": "espresso-card.js",
+  "render_readme": true,
+  "homeassistant": "2024.11.0"
+}

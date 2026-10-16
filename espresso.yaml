@@ -1,0 +1,27 @@
+# Minimal: the default entities.
+type: custom:espresso-card
+
+---
+# Everything, with the defaults written out.
+type: custom:espresso-card
+name: Espresso
+entities:
+  switch: switch.espresso_switch
+  power: sensor.espresso_switch_current_consumption
+  state: sensor.espresso_state # optional template sensor: Off / Warming up / Ready
+warmup_minutes: 14
+warmup_timeout: 20
+ready_below: 50
+heating_above: 900
+tap_action:
+  action: toggle
+hold_action:
+  action: more-info
+colors:
+  warming: var(--amber-color)
+  ready: var(--green-color)
+  heating: var(--orange-color)
+  off: var(--disabled-color)
+grid_options:
+  columns: 3
+  rows: 2
