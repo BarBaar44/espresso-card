@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.1
+
+Fixes found by checking v0.1.0 against 8 real sessions.
+
+### Fixed
+* **"Ready" right at switch-on:** the plug's first reading after switch-on is still standby (0 to 70 W); the heater shows about 10 s later. That reading was taken as the drop to ready. Ready now only counts after the heater has run in the session, both live and in the history check after a page load (walked in order: heater first, then the drop). Within the first 30 s, before the heater starts, the card shows Warming up.
+* **Heating hint flickered** on single 5 s thermostat pulses. The flame now needs the heater on for 15 s or 3 readings in a row, and goes as soon as the power drops.
+* **Off:** the machine icon showed at a third of its strength, and the text sat a line above the bottom edge. Now the full icon in grey, and "Off" on the bottom line like the other cards.
+
+### Changed
+* README: "On for" restarting after a Home Assistant restart is documented under Known limits.
+
 ## v0.1.0
 
 First release. A small tile for an espresso machine on a smart plug, in the style of the Vacuum, Appliance, Tesla Model 3 and Heating Control cards.

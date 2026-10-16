@@ -6,7 +6,7 @@ A small Lovelace tile for an espresso machine on a smart plug: **Off**, **Warmin
 
 * **Warming up:** the machine fills with colour as it heats, with a progress bar and the minutes left ("9 min"; wider tiles add the ready time, "9 min · 14:16"). Progress stops at 99% until the machine is really ready.
 * **Ready:** a portafilter drips into a filling cup; "on 25 min", "on for 1 h 12 m".
-* **Heating hint:** a small flame while a ready machine reheats (after a shot or steaming). It stays "Ready": the machine is usable.
+* **Heating hint:** a small flame while a ready machine reheats (after a shot or steaming), shown once the heater has run for 15 s or 3 readings, so single thermostat pulses never show it. It stays "Ready": the machine is usable.
 * Fits 3 columns by 2 rows in a sections view (about 120px high) and works wider too. All animations stop under reduced motion.
 
 ## Install
@@ -62,10 +62,10 @@ A misspelled option or entity role shows an error card instead of being ignored.
 | State      | When                                                                      |
 | ---------- | ------------------------------------------------------------------------- |
 | Off        | switch off                                                                |
-| Warming up | switch on, power above `heating_above`, on for less than `warmup_timeout`, and the power has not dropped below `ready_below` since switch-on |
+| Warming up | switch on, on for less than `warmup_timeout`, not ready yet this session, and either power above `heating_above` or the heater not started yet (first 30 s after switch-on) |
 | Ready      | switch on and not warming up                                              |
 
-The drop below `ready_below` is remembered for the rest of the session. That is what keeps thermostat pulses and reheat blocks early in a session from looking like a new warm-up. After a page reload in the middle of a warm-up window, the card asks Home Assistant's history once whether the drop already happened.
+Ready is the first reading below `ready_below` **after** the heater has run (power above `heating_above`). The plug reports standby for its first reading after switch-on (0 to 70 W), before the heater starts about 10 s later; that reading never counts. The ready moment is remembered for the rest of the session, which keeps thermostat pulses and reheat blocks early in a session from looking like a new warm-up. After a page reload in the middle of a warm-up window, the card asks Home Assistant's history once, walking it in order: first the heater, then the drop.
 
 A `state` sensor with another value (or unavailable) is ignored, so the card falls back to its own detection.
 
@@ -80,8 +80,11 @@ colors:
 
 ## Notes
 
-* Built from 7 measured sessions of one machine: about 1,040 W without a break for 13.7 to 14.4 minutes, then about 2.6 W standby, with short thermostat pulses and 1 to 5 minute reheat blocks after a shot. Another machine may need other numbers.
-* "On for" counts from the switch's last change. Home Assistant resets that on a restart, or when the plug was briefly unavailable, so after either the duration restarts.
+* Built from 8 measured sessions of one machine: a standby reading first, then about 1,040 W without a break for 13.7 to 14.4 minutes, then about 2.6 W standby, with single 5 s thermostat pulses and 1 to 5 minute reheat blocks after a shot. Another machine may need other numbers.
+
+## Known limits
+
+* "On for" counts from the switch's last change. Home Assistant resets that on a restart, and so does a short plug dropout, so after either the duration starts again from zero. The status itself is not affected: a ready machine reads Ready again within 30 s.
 
 ## Licence
 

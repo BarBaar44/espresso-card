@@ -101,13 +101,13 @@ test("ready after the drop, also before 14 minutes", () => {
   assert.strictEqual(r.words, "on for 13 min");
 });
 
-test("a pulse while ready stays ready, with the heating hint", () => {
+test("a pulse while ready stays ready, without the heating hint", () => {
   const c = render(states({ on: 14, w: 1040 }));
   feed(c, 2.6);
   feed(c, 950); // single thermostat pulse at about 16 min, still inside the 20 min window
   let r = read(c);
   assert.strictEqual(r.status, "Ready");
-  assert(r.heat);
+  assert(!r.heat, "one 5 s pulse is not a reheat");
   feed(c, 180);
   r = read(c);
   assert.strictEqual(r.status, "Ready");
@@ -116,11 +116,40 @@ test("a pulse while ready stays ready, with the heating hint", () => {
   assert(!read(c).heat);
 });
 
-test("a reheat block after 40 minutes stays ready, also on a fresh page", () => {
-  const r = read(render(states({ on: 40, w: 1010 })));
+test("a reheat block shows the hint after 3 readings and hides it at once after", () => {
+  const c = render(states({ on: 30, w: 2.6 }));
+  feed(c, 1030);
+  feed(c, 1045);
+  assert(!read(c).heat, "2 readings (10 s) is not yet a reheat");
+  for (const v of [1040, 1050, 1035, 1042, 1038, 1046, 1041, 1039, 1044, 1037]) feed(c, v); // the rest of a 1-minute block
+  let r = read(c);
   assert.strictEqual(r.status, "Ready");
   assert(r.heat);
+  feed(c, 2.6);
+  r = read(c);
+  assert(!r.heat);
+  assert.strictEqual(r.status, "Ready");
+});
+
+test("the heating hint also shows after 15 s, even when readings repeat", () => {
+  const c = render(states({ on: 30, w: 2.6 }));
+  feed(c, 1040);
+  assert(!read(c).heat);
+  c._heatSince -= 16000; // the same value for 16 s gives no new state object, only time passes
+  c._update();
+  assert(read(c).heat);
+});
+
+test("a reheat block after 40 minutes stays ready, also on a fresh page", () => {
+  const c = render(states({ on: 40, w: 1010 }));
+  let r = read(c);
+  assert.strictEqual(r.status, "Ready");
   assert.strictEqual(r.words, "on for 40 min");
+  feed(c, 1025);
+  feed(c, 1040);
+  r = read(c);
+  assert.strictEqual(r.status, "Ready");
+  assert(r.heat);
 });
 
 test("ready shows hours and minutes", () => {
@@ -150,9 +179,50 @@ test("after a page load, history with the drop turns a reheat into ready", async
   await tick();
   assert.strictEqual(asked.type, "history/history_during_period");
   assert.deepStrictEqual([...asked.entity_ids], [PW]);
-  const r = read(c);
-  assert.strictEqual(r.status, "Ready");
-  assert(r.heat);
+  assert.strictEqual(read(c).status, "Ready");
+});
+
+test("switch-on: the standby reading before the heater is not ready", () => {
+  const c = render({ [SW]: st("on", ago(0)), [PW]: st(0) }); // left over from off
+  assert.strictEqual(read(c).status, "Warming up");
+  feed(c, 2.6); // first reading after switch-on, ~5 s
+  assert.strictEqual(read(c).status, "Warming up");
+  feed(c, 1040); // the heater, ~10 s
+  assert.strictEqual(read(c).status, "Warming up");
+  feed(c, 1052);
+  feed(c, 2.6); // at temperature
+  assert.strictEqual(read(c).status, "Ready");
+});
+
+test("switch-on: other standby values in the first reading (17.3 W, 69 W) are not ready either", () => {
+  for (const first of [0.5, 17.3, 69.0]) {
+    const c = render({ [SW]: st("on", ago(0)), [PW]: st(0) });
+    feed(c, first);
+    feed(c, 1040);
+    assert.strictEqual(read(c).status, "Warming up", String(first));
+  }
+});
+
+test("page load: history with standby, heater and drop is ready; standby alone is not", async () => {
+  const at = (min) => (Date.now() - min * MIN) / 1000;
+  const rows = [{ s: "0.0", lu: at(16) }, { s: "2.6", lu: at(15.9) }, { s: "1040", lu: at(15.8) }, { s: "2.6", lu: at(2) }, { s: "1010", lu: at(0.1) }];
+  const c = render(states({ on: 16, w: 1010 }), {}, async () => ({ [PW]: rows }));
+  await tick();
+  await tick();
+  assert.strictEqual(read(c).status, "Ready");
+
+  // Only standby then the heater still running: warming up, the early 2.6 W does not count.
+  const warm = [{ s: "0.0", lu: at(6) }, { s: "2.6", lu: at(5.9) }, { s: "1040", lu: at(5.8) }];
+  const d = render(states({ on: 6, w: 1040 }), {}, async () => ({ [PW]: warm }));
+  await tick();
+  await tick();
+  assert.strictEqual(read(d).status, "Warming up");
+  feed(d, 2.6); // the heater was seen in the history, so the live drop counts
+  assert.strictEqual(read(d).status, "Ready");
+});
+
+test("a page opened mid-session on standby shows ready, not warming up", () => {
+  assert.strictEqual(read(render(states({ on: 16, w: 2.6 }))).status, "Ready");
 });
 
 test("history without a drop keeps warming up, asked once per session", async () => {
@@ -175,7 +245,6 @@ test("state role overrides the heuristic", () => {
   // Power says warming, the template sensor says ready.
   let r = read(render(states({ on: 5, w: 1040, extra: extra("Ready") }), cfg));
   assert.strictEqual(r.status, "Ready");
-  assert(r.heat);
   // Power says ready, the template sensor says warming up: countdown from switch-on.
   r = read(render(states({ on: 5, w: 2.6, extra: extra("Warming up") }), cfg));
   assert.strictEqual(r.status, "Warming up");

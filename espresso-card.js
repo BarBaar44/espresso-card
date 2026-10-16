@@ -6,7 +6,8 @@
  *
  * Detection, from measured sessions of the owner's machine:
  *   warming up: the heater draws ~1,040 W without a break for about 14 min
- *   ready:      the first reading below 50 W after switch-on; from then on
+ *               (the first reading after switch-on is still standby)
+ *   ready:      the first reading below 50 W after the heater ran; from then on
  *               short thermostat pulses and reheat blocks after a shot are
  *               still "ready" (shown as a small heating hint at most)
  * An optional `state` entity (Off / Warming up / Ready) overrides all of it.
@@ -20,11 +21,17 @@
 // Everything sits in one block so the top-level names cannot clash with the
 // sister cards when the files are loaded as classic scripts.
 {
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
 
 const ESPRESSO_HOLD_MS = 500;
 const ESPRESSO_MOVE_PX = 10;
 const ESPRESSO_TICK_MS = 30000; // countdown and "on for" stay current
+// At switch-on the plug first reports standby (0 to 70 W); the heater shows from the
+// second reading, about 10 s later. Until the heater is seen, a low reading is not "ready".
+const ESPRESSO_HEATER_GRACE_MS = 30000;
+// Thermostat pulses are single 5 s readings; a reheat after a shot runs for minutes.
+const ESPRESSO_HEAT_HINT_MS = 15000;
+const ESPRESSO_HEAT_HINT_READINGS = 3;
 
 const ESPRESSO_DEFAULTS = {
   name: "Espresso",
@@ -102,6 +109,7 @@ ${Object.values(ESPRESSO_COLORS).map(([v, d]) => `    ${v}: ${d};`).join("\n")}
   .name { font-size: 14px; font-weight: 500; line-height: 18px; color: var(--primary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .status, .detail { font-size: 12px; line-height: 16px; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .err .status { color: var(--ec-error); }
+  .nodetail .detail { display: none; }
   .detail { display: flex; align-items: center; gap: 6px; height: 16px; font-variant-numeric: tabular-nums; }
   .detail .words { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .bar { display: none; flex: 1; min-width: 16px; height: 4px; border-radius: 2px; background: var(--ec-soft); overflow: hidden; }
@@ -157,6 +165,20 @@ class EspressoCard extends HTMLElement {
     this._session = null; // switch-on moment of the session the card is watching
     this._readyAt = null; // when the power first dropped below ready_below in that session
     this._historyAsked = null; // session for which the power history was requested
+    this._resetSession(null);
+  }
+
+  /* Per-session memory: the ready moment, whether the heater ran, the current heat block. */
+  _resetSession(session) {
+    this._session = session;
+    this._readyAt = null;
+    this._historyAsked = null;
+    this._heaterSeen = false;
+    this._heatSince = null; // first reading of the current run above heating_above
+    this._heatReadings = 0; // readings in that run
+    this._lastPower = undefined; // the power state object last counted as a reading
+    clearTimeout(this._heatTimer);
+    this._heatTimer = null;
   }
 
   static getStubConfig() {
@@ -212,9 +234,7 @@ class EspressoCard extends HTMLElement {
     this._applyColors(this._config.colors);
     this._ids = Object.values(entities).filter(Boolean);
     this._seen = Object.create(null);
-    this._session = null;
-    this._readyAt = null;
-    this._historyAsked = null;
+    this._resetSession(null);
     this._build();
     if (this._hass) this._update();
   }
@@ -257,6 +277,8 @@ class EspressoCard extends HTMLElement {
   disconnectedCallback() {
     clearInterval(this._tick);
     this._tick = null;
+    clearTimeout(this._heatTimer);
+    this._heatTimer = null;
   }
 
   getCardSize() {
@@ -374,12 +396,23 @@ class EspressoCard extends HTMLElement {
 
     // A new session starts at every switch-on.
     const session = swState === "on" ? sw.last_changed : null;
-    if (session !== this._session) {
-      this._session = session;
-      this._readyAt = null;
-      this._historyAsked = null;
+    if (session !== this._session) this._resetSession(session);
+
+    // Count each new power reading once (the tick and other entities re-run this too).
+    const reading = this._s("power");
+    if (session && reading !== this._lastPower) {
+      this._lastPower = reading;
+      if (power !== null && power > this._config.above) {
+        this._heaterSeen = true;
+        if (this._heatSince === null) this._heatSince = now;
+        this._heatReadings++;
+      } else {
+        this._heatSince = null;
+        this._heatReadings = 0;
+        // Ready is the first drop below ready_below after the heater ran, never the standby reading at switch-on.
+        if (this._heaterSeen && power !== null && power < this._config.below && this._readyAt === null) this._readyAt = now;
+      }
     }
-    if (session && power !== null && power < this._config.below && this._readyAt === null) this._readyAt = now;
 
     let kind;
     const override = this._s("state");
@@ -392,20 +425,33 @@ class EspressoCard extends HTMLElement {
       kind = "unavailable";
     } else {
       const age = isNaN(onAt) ? Infinity : now - onAt;
+      const early = age < this._config.timeout;
       if (this._readyAt !== null) kind = "ready";
       else if (power === null) kind = age < this._config.warmup ? "warming" : "ready"; // no power reading: time only
-      else if (power > this._config.above && age < this._config.timeout) kind = "warming";
+      else if (early && power > this._config.above) kind = "warming";
+      else if (early && !this._heaterSeen && age < ESPRESSO_HEATER_GRACE_MS) kind = "warming"; // heater about to start
       else kind = "ready";
-      if (kind === "warming") this._checkHistory(onAt);
+      if (kind === "warming" && power !== null && power > this._config.above) this._checkHistory(onAt);
     }
-    const heating = kind === "ready" && power !== null && power > this._config.above;
+
+    // The hint needs a run of readings above heating_above: a single thermostat pulse never shows it.
+    let heating = false;
+    clearTimeout(this._heatTimer);
+    this._heatTimer = null;
+    if (kind === "ready" && power !== null && power > this._config.above && this._heatSince !== null) {
+      const due = this._heatSince + ESPRESSO_HEAT_HINT_MS;
+      heating = this._heatReadings >= ESPRESSO_HEAT_HINT_READINGS || now >= due;
+      if (!heating && this.isConnected) this._heatTimer = setTimeout(() => this._update(), due - now + 50);
+    }
     return { kind, onAt: isNaN(onAt) ? null : onAt, heating };
   }
 
   /*
    * After a page load the card has not seen the drop itself. If the machine looks
-   * like it is warming up, ask HA once per session whether the power already went
-   * below ready_below since switch-on; then it is a reheat, not a warm-up.
+   * like it is warming up, ask HA once per session for the power since switch-on.
+   * Walked in order: first the heater (above heating_above), then the first reading
+   * below ready_below after it. Found both: this is a reheat, the machine is ready.
+   * The standby reading at switch-on comes before the heater and never counts.
    */
   _checkHistory(onAt) {
     const session = this._session;
@@ -424,15 +470,20 @@ class EspressoCard extends HTMLElement {
       .then((res) => {
         if (this._session !== session || this._readyAt !== null) return;
         const rows = (res && res[id]) || [];
+        let heater = false;
         for (const r of rows) {
           const v = espressoNum(r.s !== undefined ? r.s : r.state);
           const t = r.lu !== undefined ? r.lu * 1000 : Date.parse(r.last_updated || r.last_changed);
-          if (v !== null && v < this._config.below && !(t < onAt)) {
+          if (v === null) continue;
+          if (v > this._config.above) heater = true;
+          else if (heater && v < this._config.below) {
+            this._heaterSeen = true;
             this._readyAt = isNaN(t) ? Date.now() : t;
             this._update();
             return;
           }
         }
+        if (heater) this._heaterSeen = true;
       })
       .catch(() => {}); // no history: the time limit still ends the warm-up
   }
@@ -485,6 +536,7 @@ class EspressoCard extends HTMLElement {
     e.card.classList.toggle("warming", k === "warming");
     e.card.classList.toggle("ready", k === "ready");
     e.card.classList.toggle("err", k === "unavailable");
+    e.card.classList.toggle("nodetail", k === "off" || k === "unavailable");
     e.icon.classList.toggle("show-pour", k === "ready");
     e.icon.classList.toggle("show-machine", k !== "ready");
     e.heat.classList.toggle("show", st.heating);
@@ -521,7 +573,7 @@ class EspressoCard extends HTMLElement {
     }
     this._text(e.status, status, statusLong);
     this._text(e.words, words, wordsLong);
-    e.stack.style.setProperty("--p", k === "warming" ? String(progress) : k === "off" || k === "unavailable" ? "0" : "1");
+    e.stack.style.setProperty("--p", k === "warming" ? String(progress) : "1"); // off: the whole machine in grey
     e.fill.style.width = `${Math.round(progress * 100)}%`;
     e.card.title = title;
     e.card.setAttribute("aria-label", `${this._config.name}: ${status}${title ? `, ${title.toLowerCase()}` : ""}`);
