@@ -2,8 +2,10 @@
 
 ## v0.1.2
 
-### Fixed
-* **Off:** "Espresso" and "Off" now sit level with a Mushroom tile next to it, such as the Cat Feeder (name baseline 44px, status 20px above the bottom edge), instead of lower down.
+### Changed
+* **Centred layout**, like a Mushroom tile: icon, name and status are centred in every state. The icon is 36px, at the same place as a Mushroom tile's icon.
+* **Level with a Mushroom tile next to it**, such as the Cat Feeder: the name sits at the same height in every state, so it no longer moves when the machine switches on. When off, "Off" is level with the other tile's status too. When on, the status and the countdown or "on for" follow right under the name.
+* The reheat flame moved to the top right corner.
 
 ## v0.1.1
 

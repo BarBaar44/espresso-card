@@ -33,7 +33,7 @@ HACS dashboard card (Lovelace) for the owner's espresso machine on a smart plug.
 * A valid `state` entity value always wins; other values fall back to the detection.
 * Progress caps at 99% until the machine is actually ready.
 * The card never hardcodes service calls: tap (`toggle`) and hold (`more-info`) go through `hass-action`.
-* Off and unavailable hide the detail line; the name and status then sit level with the Mushroom tile next to it (baselines 44px and 20px above the card bottom, measured in Bb's dashboard). The off icon is the full machine in grey.
+* Centred layout, level with the Mushroom tile next to it (measured in Bb's dashboard): 36px icon 17px from the card top, name baseline 44px above the card bottom in every state. Off and unavailable hide the detail line and put the status baseline at 20px, level with the Mushroom status; on, status and detail follow under the name (detail 8px from the bottom). The reheat flame sits absolute top right. The off icon is the full machine in grey.
 * Browser renders: the `ha-card` stub must not set `display` inline, or it overrides the card's flex layout and the render lies.
 * Layout: 3 columns by 2 rows (84px wide on a 360px phone section, 124px on 520px desktop), 120px high. Text has a short and a long version (`.short` / `.long`), switched by a container query at 90px; measure in a real browser (Playwright) after any text or layout change. Nothing may truncate at 84px.
 * mdi has no espresso machine: both icons are drawn inline SVG. The ready animation (drops, cup filling and dipping) and the warming pulse and shimmer stop under reduced motion.

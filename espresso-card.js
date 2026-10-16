@@ -78,8 +78,8 @@ ${Object.values(ESPRESSO_COLORS).map(([v, d]) => `    ${v}: ${d};`).join("\n")}
     --ec-soft: var(--secondary-background-color, rgba(127,127,127,.15));
   }
   ha-card {
-    height: 100%; box-sizing: border-box; padding: 10px; overflow: hidden;
-    display: flex; flex-direction: column; justify-content: space-between;
+    height: 100%; box-sizing: border-box; padding: 16px 6px 0; overflow: hidden; position: relative;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
     container-type: inline-size;
     cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent;
     user-select: none; -webkit-user-select: none; touch-action: manipulation;
@@ -87,33 +87,34 @@ ${Object.values(ESPRESSO_COLORS).map(([v, d]) => `    ${v}: ${d};`).join("\n")}
   ha-card.pressed { opacity: .7; }
   ha-card:focus-visible { box-shadow: 0 0 0 2px var(--primary-color); }
 
-  .top { display: flex; align-items: flex-start; justify-content: space-between; }
+  /* Centred like a Mushroom tile: the 36px icon, the name and (when off) the status sit
+     exactly level with one next to it. Off: name baseline 44px and status 20px above the
+     bottom edge; on, the name stays put and status and detail follow it closely. */
+  .top { display: flex; justify-content: center; }
   .icon {
-    width: 40px; height: 40px; border-radius: 50%; flex: none;
+    width: 36px; height: 36px; border-radius: 50%; flex: none;
     display: flex; align-items: center; justify-content: center;
     color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent);
     transition: background-color .3s, color .3s;
   }
-  .icon svg { width: 26px; height: 26px; display: block; overflow: visible; fill: currentColor; }
-  .stack { position: relative; width: 26px; height: 26px; }
+  .icon svg { width: 24px; height: 24px; display: block; overflow: visible; fill: currentColor; }
+  .stack { position: relative; width: 24px; height: 24px; }
   .stack svg { position: absolute; inset: 0; }
   .stack .base { opacity: .35; }
   .stack .fill { clip-path: inset(calc((1 - var(--p, 0)) * 100%) 0 0 0); }
   .icon .machine, .icon .pour { display: none; }
   .icon.show-machine .machine, .icon.show-pour .pour { display: block; }
-  .heat { display: none; color: var(--ec-heating); }
+  .heat { display: none; position: absolute; top: 8px; right: 8px; color: var(--ec-heating); }
   .heat.show { display: flex; }
   .heat ha-icon { --mdc-icon-size: 16px; display: flex; }
 
-  .text { min-width: 0; }
+  .text { min-width: 0; width: 100%; margin-top: 9px; }
   .name { font-size: 14px; font-weight: 500; line-height: 18px; color: var(--primary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .status, .detail { font-size: 12px; line-height: 16px; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .err .status { color: var(--ec-error); }
   .nodetail .detail { display: none; }
-  /* Off: the two lines sit level with a Mushroom tile next to it (name baseline 44px, status 20px above the card's bottom edge). */
-  .nodetail .text { padding-bottom: 5px; }
   .nodetail .status { margin-top: 8px; }
-  .detail { display: flex; align-items: center; gap: 6px; height: 16px; font-variant-numeric: tabular-nums; }
+  .detail { display: flex; align-items: center; justify-content: center; gap: 6px; height: 16px; font-variant-numeric: tabular-nums; }
   .detail .words { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .bar { display: none; flex: 1; min-width: 16px; height: 4px; border-radius: 2px; background: var(--ec-soft); overflow: hidden; }
   .bar i { display: block; height: 100%; width: 0; background: var(--c); border-radius: 2px; transition: width .4s; }
