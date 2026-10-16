@@ -21,7 +21,7 @@
 // Everything sits in one block so the top-level names cannot clash with the
 // sister cards when the files are loaded as classic scripts.
 {
-const VERSION = "0.1.2";
+const VERSION = "0.2.0";
 
 const ESPRESSO_HOLD_MS = 500;
 const ESPRESSO_MOVE_PX = 10;
@@ -183,6 +183,10 @@ class EspressoCard extends HTMLElement {
     this._lastPower = undefined; // the power state object last counted as a reading
     clearTimeout(this._heatTimer);
     this._heatTimer = null;
+  }
+
+  static getConfigElement() {
+    return document.createElement("espresso-card-editor");
   }
 
   static getStubConfig() {
@@ -584,8 +588,198 @@ class EspressoCard extends HTMLElement {
   }
 }
 
+/* ------------------------------------------------------------------------ */
+/* Visual editor                                                            */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * Built on HA's own <ha-form>. Every field shows the value in use, defaults
+ * included; only values that differ from the defaults are written to the
+ * YAML. Clearing an optional entity switches that part off (null); clearing
+ * the switch or a number goes back to its default. Options the editor does
+ * not show (grid_options, ...) are kept.
+ */
+
+const ESPRESSO_ENTITY_FIELDS = [
+  ["switch", "Plug switch (required)", ["switch", "input_boolean", "light"]],
+  ["power", "Power reading", ["sensor"]],
+  ["state", "State sensor (optional: Off, Warming up, Ready)", ["sensor", "input_select", "select"]],
+];
+const ESPRESSO_REQUIRED = ["switch"];
+
+const ESPRESSO_NUMBER_FIELDS = [
+  ["warmup_minutes", "Warm-up time", 1, 60, "min"],
+  ["warmup_timeout", "Never warming up after", 1, 120, "min"],
+  ["ready_below", "Ready below", 0, 3000, "W"],
+  ["heating_above", "Heater on above", 0, 3000, "W"],
+];
+
+const ESPRESSO_EDITOR_SCHEMA = [
+  { name: "name", selector: { text: {} } },
+  {
+    type: "expandable",
+    name: "entities",
+    title: "Entities",
+    icon: "mdi:power-plug",
+    expanded: true,
+    schema: ESPRESSO_ENTITY_FIELDS.map(([role, , domains]) => ({
+      name: role,
+      selector: { entity: { filter: { domain: domains } } },
+    })),
+  },
+  {
+    type: "expandable",
+    name: "",
+    title: "Detection",
+    icon: "mdi:flash",
+    schema: [{
+      type: "grid",
+      name: "",
+      schema: ESPRESSO_NUMBER_FIELDS.map(([k, , min, max, unit]) => ({
+        name: k,
+        selector: { number: { min, max, step: 1, mode: "box", unit_of_measurement: unit } },
+      })),
+    }],
+  },
+  {
+    type: "expandable",
+    name: "",
+    title: "Actions",
+    icon: "mdi:gesture-tap",
+    schema: [
+      { name: "tap_action", selector: { ui_action: { default_action: "toggle" } } },
+      { name: "hold_action", selector: { ui_action: { default_action: "more-info" } } },
+    ],
+  },
+  {
+    type: "expandable",
+    name: "colors",
+    title: "Colours",
+    icon: "mdi:palette",
+    schema: [{
+      type: "grid",
+      name: "",
+      schema: Object.keys(ESPRESSO_COLORS).map((k) => ({ name: k, selector: { text: {} } })),
+    }],
+  },
+];
+
+const ESPRESSO_EDITOR_LABELS = {
+  name: "Name",
+  tap_action: "Tap action",
+  hold_action: "Hold action",
+  warming: "warming up",
+  heating: "heating hint",
+  error: "unavailable",
+  ...Object.fromEntries(ESPRESSO_ENTITY_FIELDS.map(([k, label]) => [k, label])),
+  ...Object.fromEntries(ESPRESSO_NUMBER_FIELDS.map(([k, label]) => [k, label])),
+};
+
+class EspressoCardEditor extends HTMLElement {
+  /* config -> form data: defaults filled in, null shown as empty. */
+  static toData(config) {
+    const ent = config.entities || {};
+    const entities = {};
+    for (const role of Object.keys(ESPRESSO_DEFAULTS.entities)) {
+      const v = role in ent ? ent[role] : ESPRESSO_DEFAULTS.entities[role];
+      entities[role] = v || "";
+    }
+    const data = {
+      name: config.name == null ? ESPRESSO_DEFAULTS.name : config.name,
+      entities,
+      tap_action: config.tap_action,
+      hold_action: config.hold_action,
+      colors: { ...(config.colors || {}) },
+    };
+    for (const [k] of ESPRESSO_NUMBER_FIELDS) {
+      const v = espressoNum(config[k]);
+      data[k] = v == null ? ESPRESSO_DEFAULTS[k] : v;
+    }
+    return data;
+  }
+
+  /* form data -> config: only what differs from the defaults. */
+  static toConfig(data, previous) {
+    const config = { type: "custom:espresso-card" };
+    const handled = ["type", "name", "entities", "tap_action", "hold_action", "colors",
+      ...ESPRESSO_NUMBER_FIELDS.map(([k]) => k)];
+    for (const [k, v] of Object.entries(previous || {})) {
+      if (!handled.includes(k)) config[k] = v;
+    }
+    if (data.name != null && data.name !== ESPRESSO_DEFAULTS.name) config.name = data.name;
+    const entities = {};
+    for (const [role, def] of Object.entries(ESPRESSO_DEFAULTS.entities)) {
+      const v = (data.entities || {})[role];
+      if (!v) {
+        if (def && !ESPRESSO_REQUIRED.includes(role)) entities[role] = null;
+      } else if (v !== def) entities[role] = v;
+    }
+    if (Object.keys(entities).length) config.entities = entities;
+    for (const [k] of ESPRESSO_NUMBER_FIELDS) {
+      const v = espressoNum(data[k]);
+      if (v != null && v !== ESPRESSO_DEFAULTS[k]) config[k] = v;
+    }
+    if (data.tap_action && Object.keys(data.tap_action).length) config.tap_action = data.tap_action;
+    if (data.hold_action && Object.keys(data.hold_action).length) config.hold_action = data.hold_action;
+    const colors = {};
+    for (const [k, v] of Object.entries(data.colors || {})) {
+      if (typeof v === "string" && v.trim()) colors[k] = v.trim();
+    }
+    if (Object.keys(colors).length) config.colors = colors;
+    return config;
+  }
+
+  setConfig(config) {
+    this._config = config;
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._form) this._form.hass = hass;
+  }
+
+  connectedCallback() {
+    this._loadForm().then(() => this._render());
+  }
+
+  /* ha-form is lazy loaded by HA; load it through a built-in card's editor. */
+  async _loadForm() {
+    if (customElements.get("ha-form")) return;
+    try {
+      const helpers = await window.loadCardHelpers();
+      const card = await helpers.createCardElement({ type: "entities", entities: [] });
+      if (card.constructor.getConfigElement) await card.constructor.getConfigElement();
+    } catch (_) {
+      /* rendered as soon as HA has loaded it */
+    }
+    await customElements.whenDefined("ha-form");
+  }
+
+  _render() {
+    if (!this._config || !customElements.get("ha-form")) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.schema = ESPRESSO_EDITOR_SCHEMA;
+      this._form.computeLabel = (s) => ESPRESSO_EDITOR_LABELS[s.name] || s.name.replace(/_/g, " ");
+      this._form.addEventListener("value-changed", (e) => {
+        e.stopPropagation();
+        const config = EspressoCardEditor.toConfig(e.detail.value, this._config);
+        this._config = config;
+        this.dispatchEvent(new CustomEvent("config-changed", { detail: { config }, bubbles: true, composed: true }));
+      });
+      this.appendChild(this._form);
+    }
+    this._form.hass = this._hass;
+    this._form.data = EspressoCardEditor.toData(this._config);
+  }
+}
+
 if (!customElements.get("espresso-card")) {
   customElements.define("espresso-card", EspressoCard);
+}
+if (!customElements.get("espresso-card-editor")) {
+  customElements.define("espresso-card-editor", EspressoCardEditor);
 }
 
 window.customCards = window.customCards || [];

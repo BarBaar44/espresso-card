@@ -316,6 +316,71 @@ test("config errors", () => {
   for (const [cfg, re] of bad) assert.throws(() => new Card().setConfig(cfg), re);
 });
 
+
+test("editor: defaults shown, only changes written, round trip", async () => {
+  const Editor = w.customElements.get("espresso-card-editor");
+  assert(Editor, "editor registered");
+  assert.equal(Card.getConfigElement().tagName.toLowerCase(), "espresso-card-editor");
+
+  const minimal = { type: "custom:espresso-card", grid_options: { columns: 3, rows: 2 } };
+  const d0 = Editor.toData(minimal);
+  assert.equal(d0.name, "Espresso");
+  assert.equal(d0.entities.switch, SW);
+  assert.equal(d0.entities.power, PW);
+  assert.equal(d0.entities.state, "");
+  assert.equal(d0.warmup_minutes, 14);
+  assert.equal(d0.heating_above, 900);
+  assert.deepEqual(Editor.toConfig(d0, minimal), minimal, "unchanged writes nothing new");
+
+  // changed and cleared entities, numbers, a state sensor
+  const d1 = Editor.toData(minimal);
+  d1.entities.power = "";
+  d1.entities.state = "sensor.espresso_state";
+  d1.warmup_minutes = 12;
+  d1.ready_below = 50;
+  const c1 = Editor.toConfig(d1, minimal);
+  assert.deepEqual(c1.entities, { power: null, state: "sensor.espresso_state" });
+  assert.equal(c1.warmup_minutes, 12);
+  assert.equal("ready_below" in c1, false, "default number not written");
+  assert.deepEqual(Editor.toConfig(Editor.toData(c1), c1), c1, "round trip");
+
+  // the required switch and a cleared number fall back to the default
+  const d2 = Editor.toData(minimal);
+  d2.entities.switch = "";
+  d2.warmup_timeout = undefined;
+  assert.deepEqual(Editor.toConfig(d2, minimal), minimal);
+
+  // name, actions, colours
+  const full = {
+    type: "custom:espresso-card", name: "Rocket", entities: { switch: "switch.rocket" }, heating_above: 800,
+    tap_action: { action: "more-info" }, hold_action: { action: "none" }, colors: { ready: "teal" },
+  };
+  assert.deepEqual(Editor.toConfig(Editor.toData(full), full), full);
+  const d3 = Editor.toData(full);
+  d3.colors.ready = " ";
+  assert.equal(Editor.toConfig(d3, full).colors, undefined, "empty colour dropped");
+
+  // every config the editor writes is accepted by the card
+  new Card().setConfig(c1);
+  new Card().setConfig(Editor.toConfig(Editor.toData(full), full));
+
+  // with a stub ha-form: renders and passes changes on
+  if (!w.customElements.get("ha-form")) w.customElements.define("ha-form", class extends w.HTMLElement {});
+  const ed = new Editor();
+  const got = [];
+  ed.addEventListener("config-changed", (e) => got.push(e.detail.config));
+  ed.setConfig(minimal);
+  w.document.body.appendChild(ed);
+  await new Promise((r) => setTimeout(r, 0));
+  const form = ed.querySelector("ha-form");
+  assert(form, "ha-form rendered");
+  assert.equal(form.data.entities.power, PW);
+  assert.equal(form.computeLabel({ name: "heating_above" }), "Heater on above");
+  form.dispatchEvent(new w.CustomEvent("value-changed", { detail: { value: { ...form.data, name: "Rocket" } } }));
+  assert.deepEqual(got[0], { ...minimal, name: "Rocket" });
+  ed.remove();
+});
+
 (async () => {
   let failed = 0;
   for (const [name, fn] of tests) {
