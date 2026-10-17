@@ -568,7 +568,7 @@ class EspressoCard extends HTMLElement {
         title = `Ready around ${this._clock(eta)}`;
       }
     } else if (k === "ready") {
-      status = "Ready";
+      status = st.heating ? "Reheating" : "Ready"; // ready again once the reheat block ends
       if (st.onAt !== null) {
         words = `on ${this._duration(now - st.onAt, true)}`;
         wordsLong = `on for ${this._duration(now - st.onAt)}`;

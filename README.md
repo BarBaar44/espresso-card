@@ -6,7 +6,7 @@ A small Lovelace tile for an espresso machine on a smart plug: **Off**, **Warmin
 
 * **Warming up:** the machine fills with colour as it heats, with a progress bar and the minutes left ("9 min"; wider tiles add the ready time, "9 min · 14:16"). Progress stops at 99% until the machine is really ready.
 * **Ready:** a portafilter drips into a filling cup; "on 25 min", "on for 1 h 12 m".
-* **Heating hint:** a small flame while a ready machine reheats (after a shot or steaming), shown once the heater has run for 15 s or 3 readings, so single thermostat pulses never show it. It stays "Ready": the machine is usable.
+* **Heating hint:** a small flame while a ready machine reheats (after a shot or steaming), shown once the heater has run for 15 s or 3 readings, so single thermostat pulses never show it. The status reads "Reheating" while it shows and goes back to "Ready" as soon as the heater stops.
 * Centred like a Mushroom tile and level with one next to it. Fits 3 columns by 2 rows in a sections view (about 120px high) and works wider too. All animations stop under reduced motion.
 
 ## Install
