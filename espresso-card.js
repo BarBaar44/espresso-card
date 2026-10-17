@@ -21,7 +21,7 @@
 // Everything sits in one block so the top-level names cannot clash with the
 // sister cards when the files are loaded as classic scripts.
 {
-const VERSION = "0.2.0";
+const VERSION = "0.2.1";
 
 const ESPRESSO_HOLD_MS = 500;
 const ESPRESSO_MOVE_PX = 10;

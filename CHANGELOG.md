@@ -1,12 +1,14 @@
 # Changelog
 
+## v0.2.1
+
+### Changed
+* **Reheating:** while the reheat flame shows (after a shot or steaming), the status reads "Reheating" instead of "Ready". It goes back to "Ready" on the first lower reading, together with the flame.
+
 ## v0.2.0
 
 ### Added
 * **Visual editor:** name, the switch, power and state entities, the detection thresholds (warm-up time, timeout, ready below, heater on above), tap and hold actions and colours. Every field shows the value in use, defaults included. Clearing the power or state entity switches it off; clearing the switch or a number goes back to its default. Only values that differ from the defaults are written to the YAML, and options the editor does not show are kept.
-
-### Changed
-* **Reheating:** while the reheat flame shows (after a shot or steaming), the status reads "Reheating" instead of "Ready". It goes back to "Ready" on the first lower reading, together with the flame.
 
 ## v0.1.2
 
