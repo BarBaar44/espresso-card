@@ -4,6 +4,7 @@
 
 ### Changed
 * **Reheating:** while the reheat flame shows (after a shot or steaming), the status reads "Reheating" instead of "Ready". It goes back to "Ready" on the first lower reading, together with the flame.
+* **Reheating:** the pour animation (drops, filling cup) stands still while reheating and starts again with "Ready".
 
 ## v0.2.0
 

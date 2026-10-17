@@ -143,6 +143,8 @@ ${Object.values(ESPRESSO_COLORS).map(([v, d]) => `    ${v}: ${d};`).join("\n")}
   .ready .cup { animation: ec-bob .6s ease-in-out .42s infinite; }
   .liquid { transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(.8); }
   .ready .liquid { animation: ec-fill 4.8s linear infinite; }
+  /* Reheating: the pour stands still (no drops, cup at rest) until the heater stops. */
+  .ready.reheat .drip, .ready.reheat .cup, .ready.reheat .liquid { animation: none; }
   @keyframes ec-drip {
     0% { transform: translateY(-1px); opacity: 0; }
     10% { opacity: 1; }
@@ -543,6 +545,7 @@ class EspressoCard extends HTMLElement {
     e.card.style.setProperty("--c", `var(${ESPRESSO_COLORS[colour][0]})`);
     e.card.classList.toggle("warming", k === "warming");
     e.card.classList.toggle("ready", k === "ready");
+    e.card.classList.toggle("reheat", k === "ready" && st.heating);
     e.card.classList.toggle("err", k === "unavailable");
     e.card.classList.toggle("nodetail", k === "off" || k === "unavailable");
     e.icon.classList.toggle("show-pour", k === "ready");

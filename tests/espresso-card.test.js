@@ -54,6 +54,7 @@ function read(c) {
     ready: e.card.classList.contains("ready"),
     pour: e.icon.classList.contains("show-pour"),
     heat: e.heat.classList.contains("show"),
+    still: e.card.classList.contains("reheat"),
     bar: e.fill.style.width,
     title: e.card.title,
   };
@@ -125,9 +126,11 @@ test("a reheat block shows Reheating and the hint after 3 readings, Ready at onc
   let r = read(c);
   assert.strictEqual(r.status, "Reheating");
   assert(r.heat);
+  assert(r.still, "the pour stands still while reheating");
   feed(c, 2.6);
   r = read(c);
   assert(!r.heat);
+  assert(!r.still, "the pour moves again once ready");
   assert.strictEqual(r.status, "Ready");
 });
 
