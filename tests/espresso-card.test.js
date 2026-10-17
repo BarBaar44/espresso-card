@@ -117,14 +117,14 @@ test("a pulse while ready stays ready, without the heating hint", () => {
   assert(!read(c).heat);
 });
 
-test("a reheat block shows Reheating and the hint after 3 readings, Ready at once after", () => {
+test("a reheat block shows Working and the hint after 3 readings, Ready at once after", () => {
   const c = render(states({ on: 30, w: 2.6 }));
   feed(c, 1030);
   feed(c, 1045);
   assert(!read(c).heat, "2 readings (10 s) is not yet a reheat");
   for (const v of [1040, 1050, 1035, 1042, 1038, 1046, 1041, 1039, 1044, 1037]) feed(c, v); // the rest of a 1-minute block
   let r = read(c);
-  assert.strictEqual(r.status, "Reheating");
+  assert.strictEqual(r.status, "Working");
   assert(r.heat);
   assert(r.still, "the pour stands still while reheating");
   feed(c, 2.6);
@@ -141,7 +141,7 @@ test("the heating hint also shows after 15 s, even when readings repeat", () => 
   c._heatSince -= 16000; // the same value for 16 s gives no new state object, only time passes
   c._update();
   assert(read(c).heat);
-  assert.strictEqual(read(c).status, "Reheating");
+  assert.strictEqual(read(c).status, "Working");
 });
 
 test("a reheat block after 40 minutes stays ready, also on a fresh page", () => {
@@ -152,7 +152,7 @@ test("a reheat block after 40 minutes stays ready, also on a fresh page", () => 
   feed(c, 1025);
   feed(c, 1040);
   r = read(c);
-  assert.strictEqual(r.status, "Reheating");
+  assert.strictEqual(r.status, "Working");
   assert(r.heat);
 });
 

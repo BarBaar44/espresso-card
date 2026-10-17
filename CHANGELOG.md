@@ -3,7 +3,8 @@
 ## v0.2.2
 
 ### Changed
-* **Reheating:** the pour animation (drops, filling cup) stands still while reheating and starts again with "Ready".
+* **Working instead of Reheating:** while the flame shows (after a shot or steaming), the status reads "Working".
+* **Still pour:** the pour animation (drops, filling cup) stands still while working and starts again with "Ready".
 
 ## v0.2.1
 
