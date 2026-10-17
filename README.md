@@ -33,6 +33,8 @@ entities:
 
 More in [espresso.yaml](espresso.yaml).
 
+Or use the card editor: it shows the name, every entity and the detection thresholds with the values in use, defaults included, plus tap and hold actions and colours. Clearing the power or state entity switches it off; clearing the switch or a number goes back to its default. Only values that differ from the defaults are written to the YAML, and options the editor does not show, such as `grid_options`, are kept.
+
 ### Options
 
 | Option           | Default                                      |

@@ -7,7 +7,7 @@ HACS dashboard card (Lovelace) for the owner's espresso machine on a smart plug.
 | File | Purpose |
 |---|---|
 | `espresso-card.js` | The whole card: plain custom element, no build step, no dependencies. `ESPRESSO_DEFAULTS` holds the owner's entities and thresholds, `ESPRESSO_COLORS` the colours, `ESPRESSO_MACHINE` / `ESPRESSO_POUR` the two drawn icons. |
-| `tests/espresso-card.test.js` | jsdom tests: off, warming up with countdown, ready after the drop, pulse and reheat while ready, history check after reload, state override, thresholds, actions, config errors. `npm test`. |
+| `tests/espresso-card.test.js` | jsdom tests: off, warming up with countdown, ready after the drop, pulse and reheat while ready, history check after reload, state override, thresholds, actions, config errors, editor round trips. `npm test`. |
 | `hacs.json` | HACS manifest (HA 2024.11+). |
 | `README.md` | User docs, also the HACS info page. Keep the option, entity, decision and colour tables in sync with the code. |
 | `CHANGELOG.md` | One `## vX.Y.Z` section per release; the Release workflow uses it as the release notes. |
@@ -30,6 +30,7 @@ HACS dashboard card (Lovelace) for the owner's espresso machine on a smart plug.
 * Before the heater is seen the card shows warming up for at most `ESPRESSO_HEATER_GRACE_MS` (30 s) after switch-on, not until `warmup_timeout`: otherwise a page opened on a ready machine, or the reset `last_changed` after an HA restart, would read "warming up" for 20 min.
 * After a page load the card has not seen the drop. When it shows warming up with the heater on, it asks `history/history_during_period` once per session for the power since switch-on and walks it in order: heater first, then the first reading below `ready_below`. A failed call is ignored (the timeout still ends the warm-up).
 * The heating hint needs 3 readings in a row above `heating_above` or 15 s (a timer re-renders at 15 s), and hides on the first lower reading. Single thermostat pulses never show it.
+* Visual editor (`EspressoCardEditor`, on `ha-form`): fields show the defaults; only non-defaults are written; a cleared optional entity is written as `null`, a cleared switch or number falls back to the default (the card needs them); unknown keys are kept. Keep `ESPRESSO_ENTITY_FIELDS` and `ESPRESSO_NUMBER_FIELDS` in sync with `ESPRESSO_DEFAULTS`.
 * A valid `state` entity value always wins; other values fall back to the detection.
 * Progress caps at 99% until the machine is actually ready.
 * The card never hardcodes service calls: tap (`toggle`) and hold (`more-info`) go through `hass-action`.
